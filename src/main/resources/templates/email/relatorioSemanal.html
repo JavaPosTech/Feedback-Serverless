@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<body style="margin: 0; padding: 24px; background: #f4f6f9; font-family: Arial, sans-serif; color: #1a1f2b;">
+<table role="presentation" width="100%" style="max-width: 680px; margin: 0 auto; background: #ffffff; border: 1px solid #d9dee7; border-radius: 8px; border-collapse: separate;">
+    <tr>
+        <td style="padding: 20px 24px; border-bottom: 3px solid #2457c5;">
+            <div style="font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #2457c5; font-weight: bold;">Relatório semanal</div>
+            <div style="font-size: 20px; font-weight: bold; margin-top: 4px;">Avaliações de {relatorio.inicio.format('dd/MM/yyyy')} a {relatorio.fim.format('dd/MM/yyyy')}</div>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 20px 24px;">
+            <table role="presentation" width="100%" style="border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 12px; background: #eaf0fc; border-radius: 6px; width: 50%;">
+                        <div style="font-size: 12px; color: #5d6677;">Média das notas</div>
+                        <div style="font-size: 26px; font-weight: bold;">{#if relatorio.mediaNotas != null}{relatorio.mediaNotas.formatar}{#else}-{/if}</div>
+                    </td>
+                    <td style="width: 12px;"></td>
+                    <td style="padding: 12px; background: #eaf0fc; border-radius: 6px; width: 50%;">
+                        <div style="font-size: 12px; color: #5d6677;">Total de avaliações</div>
+                        <div style="font-size: 26px; font-weight: bold;">{relatorio.totalAvaliacoes}</div>
+                    </td>
+                </tr>
+            </table>
+
+            <h3 style="font-size: 15px; margin: 24px 0 8px;">Quantidade de avaliações por dia</h3>
+            <table role="presentation" width="100%" style="border-collapse: collapse; font-size: 14px;">
+                {#for item in relatorio.avaliacoesPorDia}
+                <tr>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #d9dee7;">{item.dia.format('dd/MM/yyyy')}</td>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #d9dee7; text-align: right;">{item.quantidade}</td>
+                </tr>
+                {#else}
+                <tr><td style="padding: 6px 0; color: #5d6677;">Nenhuma avaliação no período.</td></tr>
+                {/for}
+            </table>
+
+            <h3 style="font-size: 15px; margin: 24px 0 8px;">Quantidade de avaliações por urgência</h3>
+            <table role="presentation" width="100%" style="border-collapse: collapse; font-size: 14px;">
+                {#for item in relatorio.avaliacoesPorUrgencia}
+                <tr>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #d9dee7;">{item.urgencia.descricao}</td>
+                    <td style="padding: 6px 0; border-bottom: 1px solid #d9dee7; text-align: right;">{item.quantidade}</td>
+                </tr>
+                {#else}
+                <tr><td style="padding: 6px 0; color: #5d6677;">Nenhuma avaliação no período.</td></tr>
+                {/for}
+            </table>
+
+            <h3 style="font-size: 15px; margin: 24px 0 8px;">Avaliações recebidas</h3>
+            <table role="presentation" width="100%" style="border-collapse: collapse; font-size: 13px;">
+                <tr>
+                    <th style="padding: 6px 8px 6px 0; text-align: left; color: #5d6677; border-bottom: 2px solid #1a1f2b;">Descrição</th>
+                    <th style="padding: 6px 8px; text-align: left; color: #5d6677; border-bottom: 2px solid #1a1f2b;">Urgência</th>
+                    <th style="padding: 6px 0 6px 8px; text-align: left; color: #5d6677; border-bottom: 2px solid #1a1f2b;">Data de envio</th>
+                </tr>
+                {#for avaliacao in relatorio.avaliacoes}
+                <tr>
+                    <td style="padding: 6px 8px 6px 0; border-bottom: 1px solid #d9dee7;">{avaliacao.descricao}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid #d9dee7;">{avaliacao.urgencia.descricao}</td>
+                    <td style="padding: 6px 0 6px 8px; border-bottom: 1px solid #d9dee7; white-space: nowrap;">{avaliacao.dataEnvio.format('dd/MM/yyyy HH:mm')}</td>
+                </tr>
+                {#else}
+                <tr><td colspan="3" style="padding: 6px 0; color: #5d6677;">Nenhuma avaliação no período.</td></tr>
+                {/for}
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
