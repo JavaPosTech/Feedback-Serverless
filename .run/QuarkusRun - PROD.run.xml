@@ -1,0 +1,40 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="QuarkusRun - PROD" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="env">
+        <map>
+          <entry key="AzureWebJobsStorage" value="UseDevelopmentStorage=true" />
+          <entry key="DATABASE_URL" value="jdbc:sqlserver://localhost:1433;databaseName=feedback;user=sa;password=Feedback@Local2026;encrypt=true;trustServerCertificate=true" />
+          <entry key="EMAIL_DESTINATARIOS" value="admin@feedback.local" />
+          <entry key="EMAIL_REMETENTE" value="DoNotReply@feedback.local" />
+          <entry key="FEEDBACK_EMAIL_SIMULADO" value="true" />
+          <entry key="FEEDBACK_FILA_CONNECTION_STRING" value="UseDevelopmentStorage=true" />
+          <entry key="FUNCTIONS_WORKER_RUNTIME" value="java" />
+          <entry key="languageWorkers__java__arguments" value="-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" />
+          <entry key="QUARKUS_PROFILE" value="prod" />
+        </map>
+      </option>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="quarkusRun" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <ExternalSystemDebugDisabled>false</ExternalSystemDebugDisabled>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <GradleProfilingDisabled>false</GradleProfilingDisabled>
+    <GradleCoverageDisabled>false</GradleCoverageDisabled>
+    <method v="2" />
+  </configuration>
+</component>
