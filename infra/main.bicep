@@ -36,7 +36,8 @@ param leitoresObjectIds array = []
 @description('Object ID da identidade usada pelo GitHub Actions para publicar as funções. Vazio para não atribuir.')
 param implantadorPrincipalId string = ''
 
-@description('Valor mensal do orçamento, na moeda da assinatura.')
+@description('Valor mensal do orçamento, na moeda da assinatura. Zero para não criar o orçamento, nas ofertas que não aceitam budgets.')
+@minValue(0)
 param orcamentoMensal int = 20
 
 @description('Primeiro dia do mês em que o orçamento começa a valer.')
@@ -128,7 +129,7 @@ module permissoes 'modules/rbac.bicep' = {
   }
 }
 
-resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = {
+resource orcamento 'Microsoft.Consumption/budgets@2023-11-01' = if (orcamentoMensal > 0) {
   name: 'orcamento-${nomeBase}-${ambiente}'
   properties: {
     category: 'Cost'
