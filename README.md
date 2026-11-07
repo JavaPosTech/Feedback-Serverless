@@ -82,6 +82,41 @@ O projeto é **um repositório e um Function App com três funções**. Cada fun
 
 <br>
 
+## 🧭 Modelo de Cloud
+
+A solução roda em **nuvem pública (Microsoft Azure)** no modelo **serverless**: o código de negócio vive em funções (**FaaS**) e tudo o que dá suporte a elas é serviço gerenciado (**PaaS**). Não existe máquina virtual, sistema operacional ou servidor para manter.
+
+| Componente | Serviço Azure | Modelo | Por que este serviço |
+|---|---|---|---|
+| Funções | Azure Functions, plano **Flex Consumption** | FaaS | Cobra por execução, escala até zero quando ninguém usa e escala sozinho sob carga |
+| Banco de dados | Azure SQL Database **serverless** | PaaS | Oferta gratuita mensal (`useFreeLimit`), pausa após 60 minutos sem uso e, se a cota gratuita acabar, pausa em vez de cobrar |
+| Fila | Azure Storage Queue | PaaS | Desacopla a entrada da notificação, com novas tentativas e fila poison nativas |
+| E-mail | Azure Communication Services (Email) | PaaS | Envio transacional com domínio gerenciado pela Azure, sem configurar domínio próprio |
+| Segredo | Azure Key Vault | PaaS | Guarda a connection string do e-mail fora do código e da configuração |
+| Monitoramento | Application Insights e Log Analytics | PaaS | Logs, métricas, execução de cada função e alertas |
+| Infraestrutura | Bicep | IaC | Toda a infraestrutura é declarada no repositório e recriada com um comando |
+
+* **Por que serverless:** as três cargas de trabalho são esporádicas (uma requisição por avaliação, uma mensagem por avaliação crítica e uma execução por semana). Um servidor ligado o tempo todo pagaria pela ociosidade.
+
+* **Por que três funções:** cada uma tem um gatilho e uma responsabilidade, como pede a regra de Responsabilidade Única do desafio. Elas ficam no mesmo Function App porque compartilham o modelo de dados, a configuração e o pipeline de deploy, mas escalam e falham de forma independente.
+
+* **Por que Azure:** a conta [Azure for Students](https://azure.microsoft.com/pt-br/free/students) dá créditos sem exigir cartão de crédito, e a solução foi dimensionada para caber nesses créditos.
+
+<br>
+
+## 🧩 Decisões de Arquitetura
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| Azure, com a conta Azure for Students | AWS ou Google Cloud | Indicação dos professores: é a única com créditos para estudante sem cartão de crédito |
+| Toda a aplicação em Java (Quarkus) | Funções em outras linguagens | Requisito confirmado pelos professores. Bicep e YAML aparecem apenas na infraestrutura e no pipeline |
+| Azure Communication Services para os e-mails | SendGrid | O SendGrid não tem mais plano gratuito para contas novas do Azure for Students. Os professores confirmaram que o ACS atende ao requisito de notificações automáticas |
+| `GerarRelatorio` consulta o banco direto | Chamar uma API da aplicação | Não existe uma aplicação principal separada. Os professores confirmaram que a função pode acessar o banco |
+| Chave de função no `POST /avaliacao`, com RBAC e identidade gerenciada na infraestrutura | Login do estudante (Entra ID ou JWT próprio) | O desafio não pede identificação do estudante e a avaliação é anônima. Os administradores não têm endpoint, só recebem e-mails. Os professores aceitam tanto um serviço gerenciado da nuvem quanto a implementação em Java; se for preciso identificar o estudante, o caminho é a autenticação nativa do App Service com Entra ID |
+| Fila entre a entrada e a notificação | Enviar o e-mail dentro da requisição | O estudante não espera o e-mail sair, e uma falha no envio não perde a notificação |
+
+<br>
+
 ## 🔌 API
 
 ### `POST /avaliacao`
@@ -197,6 +232,12 @@ az deployment group create --resource-group rg-feedback-dev --template-file infr
 
 Antes, preencha `infra/dev.bicepparam` com os e-mails dos administradores e o administrador Entra ID do SQL (`az ad signed-in-user show --query "{login:userPrincipalName, id:id}"`).
 
+Na conta Azure for Students:
+
+* **Região:** a assinatura só aceita algumas regiões. Confira quais estão liberadas em Policy → Assignments no portal e se a região oferece Flex Consumption (`az functionapp list-flexconsumption-locations`).
+
+* **Orçamento:** se o deploy falhar no recurso `orcamento`, a oferta não aceita budgets. Use `param orcamentoMensal = 0` para não criá-lo.
+
 🔹 2. Dar acesso da função ao banco
 
 No Query editor do banco `feedback`, entrando com o administrador Entra ID, troque o nome pelo do Function App criado:
@@ -229,6 +270,31 @@ curl -X POST "https://<function-app>.azurewebsites.net/admin/functions/GerarRela
 
 A `master-key` sai de `az functionapp keys list`.
 
+🔹 4. Configurar o deploy automático
+
+O GitHub Actions entra na Azure com uma identidade gerenciada e uma credencial federada (OIDC). Essa identidade não exige App Registration nem guarda segredo, e só tem permissão de publicar no Function App.
+
+```bash
+# Cria a identidade usada pelo GitHub Actions e mostra os IDs
+az identity create --resource-group rg-feedback-dev --name id-github-feedback --query "{clientId:clientId, principalId:principalId}"
+
+# Confia nos tokens emitidos pelo GitHub para o environment dev deste repositório
+az identity federated-credential create --resource-group rg-feedback-dev --identity-name id-github-feedback --name github-dev --issuer https://token.actions.githubusercontent.com --subject repo:JavaPosTech/Feedback-Serverless:environment:dev --audiences api://AzureADTokenExchange
+```
+
+Coloque o `principalId` em `implantadorPrincipalId` no `infra/dev.bicepparam` e rode de novo o `az deployment group create` do passo 1, que dá à identidade o papel de colaborador do Function App. Depois, crie o environment e as variáveis no GitHub:
+
+```bash
+gh api --method PUT repos/JavaPosTech/Feedback-Serverless/environments/dev
+
+gh variable set AZURE_CLIENT_ID --env dev --body <clientId>
+gh variable set AZURE_TENANT_ID --env dev --body "$(az account show --query tenantId -o tsv)"
+gh variable set AZURE_SUBSCRIPTION_ID --env dev --body "$(az account show --query id -o tsv)"
+gh variable set FUNCTION_APP_NAME --env dev --body <function-app>
+```
+
+A partir daí, cada push na `main` testa e publica as funções. Para publicar sem push, use Actions → Deploy → Run workflow.
+
 <br>
 
 ## 📈 Monitoramento
@@ -243,6 +309,14 @@ O Application Insights recebe logs, métricas e a execução de cada função. D
 <br>
 
 ## 🛡️ Segurança e Governança
+
+* **Dados anônimos:** a avaliação guarda só nota, descrição, urgência e data de envio. Nenhum dado pessoal do estudante é coletado, e os e-mails dos administradores ficam apenas na configuração do Function App.
+
+* **Criptografia em repouso:** o Azure SQL usa Transparent Data Encryption, ativa por padrão, e a conta de storage criptografa a fila e os blobs.
+
+* **Banco só com Entra ID:** o SQL Server aceita apenas autenticação Entra ID (`azureADOnlyAuthentication`), sem login nem senha SQL. A função acessa o banco com identidade gerenciada e permissões de leitura, escrita e DDL, esta última necessária para as migrations do Flyway.
+
+* **Retenção limitada:** os logs ficam 30 dias no Log Analytics.
 
 * **Sem senhas no código:** a função acessa banco, fila e Key Vault com identidade gerenciada.
 
@@ -261,6 +335,9 @@ O Application Insights recebe logs, métricas e a execução de cada função. D
 | Workflow | Gatilho | O que faz |
 |---|---|---|
 | `ci.yml` | Pull Request para `main` | Sobe SQL Server e Azurite e roda `./gradlew build` |
+| `deploy.yml` | Push na `main` ou execução manual | Roda os testes, gera o pacote, entra na Azure por OIDC e publica as três funções no Function App |
+
+O `deploy.yml` não usa senha nem segredo do GitHub: a Azure confia no token que o GitHub emite para o environment `dev`. A configuração está no passo 4 de "Deploy na Azure".
 
 <br>
 

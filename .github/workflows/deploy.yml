@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publicar as funções
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      FUNCTION_APP_NAME: ${{ vars.FUNCTION_APP_NAME }}
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Configurar o Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Subir SQL Server e Azurite
+        run: docker compose up -d --wait
+
+      - name: Compilar, testar e empacotar
+        run: bash gradlew build --no-daemon
+
+      - name: Entrar na Azure com OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Publicar no Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.FUNCTION_APP_NAME }}
+          package: build/azure-functions/${{ vars.FUNCTION_APP_NAME }}
+          sku: flexconsumption
+
+      - name: Derrubar os containers
+        if: always()
+        run: docker compose down -v
