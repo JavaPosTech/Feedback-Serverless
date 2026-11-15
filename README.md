@@ -399,3 +399,5 @@ src/test/java/br/com/fiap/feedback
 * O relatório lista todas as avaliações da semana no corpo do e-mail. Para volumes grandes, o ideal seria um anexo ou um link.
 
 * As datas são gravadas no horário de Brasília (`feedback.fuso-horario`), para que o relatório agrupe pelos dias que os administradores enxergam.
+
+* Numa inicialização a frio, depois de o Function App escalar a zero, o Quarkus já travou uma vez logo após iniciar o Hibernate Validator, e as chamadas seguintes ficaram esperando por ele. O `functionTimeout` de 2 minutos no `host.json` faz o runtime encerrar a execução presa e reiniciar o worker Java, e a função volta sozinha. A execução mais longa, o relatório com envio de e-mail, leva cerca de 15 segundos. Se a função continuar sem responder, rode `az functionapp stop` e `az functionapp start`; o `az functionapp restart` não reinicia o worker no Flex Consumption.
