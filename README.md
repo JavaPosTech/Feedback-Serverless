@@ -223,24 +223,36 @@ Cada teste sobe o contexto completo do Quarkus, roda contra o banco `feedback_te
 🔹 1. Criar a infraestrutura
 
 ```bash
+# Registra os provedores usados pela solução (uma vez por assinatura)
+for p in Microsoft.Web Microsoft.Sql Microsoft.Storage Microsoft.Communication Microsoft.KeyVault Microsoft.Insights Microsoft.OperationalInsights Microsoft.AlertsManagement Microsoft.ManagedIdentity; do az provider register -n $p --wait; done
+
 # Cria o resource group
-az group create --name rg-feedback-dev --location brazilsouth
+az group create --name rg-feedback-dev --location francecentral
+
+# Mostra o login e o ID do administrador Entra ID do SQL
+az ad signed-in-user show --query "{login:userPrincipalName, id:id}"
 
 # Cria Function App, banco, fila, e-mail, Key Vault, monitoramento, permissões e orçamento
-az deployment group create --resource-group rg-feedback-dev --template-file infra/main.bicep --parameters infra/dev.bicepparam
+az deployment group create --name feedback-dev --resource-group rg-feedback-dev --template-file infra/main.bicep --parameters location=francecentral emailsAdministradores='["admin@exemplo.com"]' adminSqlLogin=<login> adminSqlObjectId=<id> adminSqlTipo=User
 ```
 
-Antes, preencha `infra/dev.bicepparam` com os e-mails dos administradores e o administrador Entra ID do SQL (`az ad signed-in-user show --query "{login:userPrincipalName, id:id}"`).
+Os e-mails e o administrador do SQL vão na linha de comando, e não no `infra/dev.bicepparam`, para não publicar dados pessoais no repositório.
 
 Na conta Azure for Students:
 
-* **Região:** a assinatura só aceita algumas regiões. Confira quais estão liberadas em Policy → Assignments no portal e se a região oferece Flex Consumption (`az functionapp list-flexconsumption-locations`).
+* **Região:** a assinatura só aceita as regiões liberadas pela política "Allowed resource deployment regions" (Policy → Assignments no portal). Na assinatura do grupo, são `francecentral`, `spaincentral`, `northcentralus`, `chilecentral` e `italynorth`. Dessas, `chilecentral` não tem Flex Consumption e `northcentralus` bloqueia a criação de SQL para a assinatura, por isso a solução está em `francecentral`. Para conferir outra região: `az functionapp list-flexconsumption-locations` e `az sql db list-editions -l <regiao> --edition GeneralPurpose --service-objective GP_S_Gen5_2 --available`.
 
-* **Orçamento:** se o deploy falhar no recurso `orcamento`, a oferta não aceita budgets. Use `param orcamentoMensal = 0` para não criá-lo.
+* **Orçamento:** a oferta aceitou o recurso `orcamento`. Se outra assinatura recusar, use `orcamentoMensal=0` para não criá-lo.
 
 🔹 2. Dar acesso da função ao banco
 
-No Query editor do banco `feedback`, entrando com o administrador Entra ID, troque o nome pelo do Function App criado:
+Rode o script abaixo no banco `feedback` como administrador Entra ID, trocando o nome pelo do Function App criado. Pelo portal, use o Query editor do banco. Pelo terminal, salve o script em `usuario-funcao.sql` e rode com o [go-sqlcmd](https://learn.microsoft.com/sql/tools/sqlcmd/go-sqlcmd-utility) usando o login do `az`, liberando o seu IP no firewall só durante o comando:
+
+```bash
+az sql server firewall-rule create --resource-group rg-feedback-dev --server <sql-server> --name configuracao-temporaria --start-ip-address <seu-ip> --end-ip-address <seu-ip>
+sqlcmd -S <sql-server>.database.windows.net -d feedback --authentication-method ActiveDirectoryAzCli -i usuario-funcao.sql
+az sql server firewall-rule delete --resource-group rg-feedback-dev --server <sql-server> --name configuracao-temporaria
+```
 
 ```sql
 CREATE USER [func-feedback-dev-xxxxxx] FROM EXTERNAL PROVIDER;
@@ -278,11 +290,16 @@ O GitHub Actions entra na Azure com uma identidade gerenciada e uma credencial f
 # Cria a identidade usada pelo GitHub Actions e mostra os IDs
 az identity create --resource-group rg-feedback-dev --name id-github-feedback --query "{clientId:clientId, principalId:principalId}"
 
+# Mostra os IDs da organização e do repositório, que entram no subject do token do GitHub
+gh api repos/JavaPosTech/Feedback-Serverless --jq '"\(.owner.id) \(.id)"'
+
 # Confia nos tokens emitidos pelo GitHub para o environment dev deste repositório
-az identity federated-credential create --resource-group rg-feedback-dev --identity-name id-github-feedback --name github-dev --issuer https://token.actions.githubusercontent.com --subject repo:JavaPosTech/Feedback-Serverless:environment:dev --audiences api://AzureADTokenExchange
+az identity federated-credential create --resource-group rg-feedback-dev --identity-name id-github-feedback --name github-dev --issuer https://token.actions.githubusercontent.com --subject "repo:JavaPosTech@<owner-id>/Feedback-Serverless@<repo-id>:environment:dev" --audiences api://AzureADTokenExchange
 ```
 
-Coloque o `principalId` em `implantadorPrincipalId` no `infra/dev.bicepparam` e rode de novo o `az deployment group create` do passo 1, que dá à identidade o papel de colaborador do Function App. Depois, crie o environment e as variáveis no GitHub:
+O GitHub inclui os IDs da organização e do repositório no subject do token (`repo:JavaPosTech@266169366/Feedback-Serverless@1421564647:environment:dev`). Com o formato antigo, sem os IDs, o login falha com `AADSTS700213: No matching federated identity record found`.
+
+Rode de novo o `az deployment group create` do passo 1 acrescentando `implantadorPrincipalId=<principalId>`, que dá à identidade o papel de colaborador do Function App. Depois, crie o environment e as variáveis no GitHub:
 
 ```bash
 gh api --method PUT repos/JavaPosTech/Feedback-Serverless/environments/dev
@@ -376,8 +393,6 @@ src/test/java/br/com/fiap/feedback
 <br>
 
 ## ⚠️ Limitações
-
-* A infraestrutura foi validada com `bicep build`, mas não foi publicada numa assinatura a partir deste repositório. Confira se a região escolhida oferece o plano Flex Consumption.
 
 * Se a publicação na fila falhar depois de gravar a avaliação, a função responde 500 e a avaliação fica salva sem notificação. Um reenvio do cliente gera uma segunda avaliação.
 
