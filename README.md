@@ -130,6 +130,20 @@ Os erros seguem o formato `status`, `title`, `instance`, `type`, `detail`, `erro
 
 <br>
 
+## 📮 Postman
+
+A pasta `postman` tem a collection com todos os endpoints do ambiente publicado e o environment `Feedback-Serverless · Azure`. Importe os dois arquivos no Postman e selecione o environment.
+
+| Requisição | Endpoint | O que faz |
+|---|---|---|
+| Status do host | `GET /admin/host/status` | Mostra se o runtime está rodando |
+| Listar as funções | `GET /admin/functions` | Lista as três funções e os gatilhos |
+| Receber avaliação | `POST /avaliacao` | Grava uma avaliação crítica, que também dispara o e-mail de urgência |
+| Executar a notificação de urgência | `POST /admin/functions/NotificarUrgencia` | Envia o e-mail de urgência na hora, com a mensagem que a fila entregaria |
+| Gerar o relatório semanal | `POST /admin/functions/GerarRelatorio` | Envia o relatório dos 7 dias anteriores na hora |
+
+<br>
+
 ## ⚙️ Pré-requisitos
 
 * JDK 21 instalada
@@ -228,10 +242,12 @@ az identity create --resource-group rg-feedback-dev --name id-github-feedback --
 # Confia nos tokens do GitHub para o environment dev
 az identity federated-credential create --resource-group rg-feedback-dev --identity-name id-github-feedback --name github-dev --issuer https://token.actions.githubusercontent.com --subject "repo:JavaPosTech@<owner-id>/Feedback-Serverless@<repo-id>:environment:dev" --audiences api://AzureADTokenExchange
 
-# Variáveis do environment dev no GitHub
-gh variable set AZURE_CLIENT_ID --env dev --body <clientId>
-gh variable set AZURE_TENANT_ID --env dev --body "$(az account show --query tenantId -o tsv)"
-gh variable set AZURE_SUBSCRIPTION_ID --env dev --body "$(az account show --query id -o tsv)"
+# Secrets do environment dev no GitHub, mascarados nos logs
+gh secret set AZURE_CLIENT_ID --env dev --body <clientId>
+gh secret set AZURE_TENANT_ID --env dev --body "$(az account show --query tenantId -o tsv)"
+gh secret set AZURE_SUBSCRIPTION_ID --env dev --body "$(az account show --query id -o tsv)"
+
+# Nome do Function App, que define a pasta do pacote
 gh variable set FUNCTION_APP_NAME --env dev --body <function-app>
 ```
 
@@ -313,6 +329,10 @@ infra
 ├── main.bicep                  # Módulos, orçamento e saídas
 ├── dev.bicepparam              # Parâmetros do ambiente dev
 └── modules                     # function-app, sql, storage, email, keyvault, monitoring e rbac
+
+postman
+├── Feedback-Serverless.postman_collection.json            # Todos os endpoints
+└── Feedback-Serverless-Azure.postman_environment.json     # Ambiente publicado
 ```
 
 <br>
