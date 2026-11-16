@@ -1,46 +1,35 @@
 targetScope = 'resourceGroup'
 
-@description('Região dos recursos regionais.')
 param location string = resourceGroup().location
 
-@description('Nome do ambiente, usado nos nomes e nas tags.')
 @allowed([
   'dev'
   'prod'
 ])
 param ambiente string = 'dev'
 
-@description('Prefixo dos nomes dos recursos.')
 param nomeBase string = 'feedback'
 
-@description('E-mails que recebem as notificações de urgência, o relatório semanal, os alertas e o aviso de orçamento.')
 @minLength(1)
 param emailsAdministradores array
 
-@description('Login (UPN ou nome do grupo) do administrador Entra ID do SQL Server.')
 param adminSqlLogin string
 
-@description('Object ID do administrador Entra ID do SQL Server.')
 param adminSqlObjectId string
 
-@description('Tipo do administrador do SQL Server.')
 @allowed([
   'User'
   'Group'
 ])
 param adminSqlTipo string = 'User'
 
-@description('Object IDs dos membros do grupo que recebem acesso de leitura ao resource group.')
 param leitoresObjectIds array = []
 
-@description('Object ID da identidade usada pelo GitHub Actions para publicar as funções. Vazio para não atribuir.')
 param implantadorPrincipalId string = ''
 
-@description('Valor mensal do orçamento, na moeda da assinatura. Zero para não criar o orçamento, nas ofertas que não aceitam budgets.')
 @minValue(0)
 param orcamentoMensal int = 20
 
-@description('Primeiro dia do mês em que o orçamento começa a valer.')
 param inicioOrcamento string = utcNow('yyyy-MM-01')
 
 var sufixo = take(uniqueString(resourceGroup().id), 6)

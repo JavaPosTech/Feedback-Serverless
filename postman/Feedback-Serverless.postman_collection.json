@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "Feedback-Serverless",
+    "description": "Endpoints da plataforma de feedback do Tech Challenge da Fase 4, no ambiente publicado na Azure. Use com o environment Feedback-Serverless · Azure, da mesma pasta.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Status do host",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-functions-key",
+            "value": "{{chave_master}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/admin/host/status",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "host", "status"]
+        },
+        "description": "Mostra se o runtime do Azure Functions está rodando e a versão dele."
+      }
+    },
+    {
+      "name": "Listar as funções",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-functions-key",
+            "value": "{{chave_master}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/admin/functions",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "functions"]
+        },
+        "description": "Lista as três funções publicadas e o gatilho de cada uma: HTTP, fila e timer."
+      }
+    },
+    {
+      "name": "Receber avaliação",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-functions-key",
+            "value": "{{chave_funcao}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nota\": 2,\n  \"descricao\": \"O áudio cortou várias vezes durante a aula\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/avaliacao",
+          "host": ["{{base_url}}"],
+          "path": ["avaliacao"]
+        },
+        "description": "Função ReceberAvaliacao. Grava a avaliação, calcula a urgência pela nota (0 a 3 crítica, 4 a 6 média, 7 a 10 baixa) e responde 201 com id, urgência e data de envio.\n\nCom nota de 0 a 3, a avaliação vai para a fila avaliacoes-criticas e a função NotificarUrgencia envia o e-mail aos administradores."
+      }
+    },
+    {
+      "name": "Executar a notificação de urgência",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-functions-key",
+            "value": "{{chave_master}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"input\": \"{\\\"id\\\":\\\"3f1c2b7e-8a4d-4c3b-9e2f-1a2b3c4d5e6f\\\",\\\"descricao\\\":\\\"O vídeo da aula não carrega\\\",\\\"nota\\\":1,\\\"urgencia\\\":\\\"CRITICA\\\",\\\"dataEnvio\\\":\\\"2026-11-16T19:45:00\\\"}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/admin/functions/NotificarUrgencia",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "functions", "NotificarUrgencia"]
+        },
+        "description": "Executa a função NotificarUrgencia na hora, com a mesma mensagem que a fila entregaria, e envia o e-mail de urgência aos administradores. Responde 202; o envio acontece em seguida.\n\nNo fluxo normal ela é disparada pela fila quando chega uma avaliação crítica."
+      }
+    },
+    {
+      "name": "Gerar o relatório semanal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-functions-key",
+            "value": "{{chave_master}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"input\": \"\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/admin/functions/GerarRelatorio",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "functions", "GerarRelatorio"]
+        },
+        "description": "Executa na hora a função GerarRelatorio, que normalmente roda toda segunda-feira às 08:00 de Brasília. Envia aos administradores a média das notas e a quantidade de avaliações por dia e por urgência dos 7 dias anteriores, sem incluir o dia de hoje. Responde 202; o envio acontece em seguida."
+      }
+    }
+  ]
+}
